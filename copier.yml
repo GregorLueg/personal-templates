@@ -1,0 +1,93 @@
+_subdirectory: template
+
+# GitHub Actions uses ${{ ... }}, which collides with Jinja's default {{ ... }}.
+# Shifting the delimiters lets workflow files pass through untouched.
+#
+# Note the knock-on: [[ ]] would collide with R's own [[ ]], so any R file that
+# needs templating would break. None do. R files ship without the .jinja suffix
+# and are copied byte for byte, which is why tools/config.R survives despite
+# containing .Platform[["OS.type"]].
+_envops:
+  block_start_string: "[%"
+  block_end_string: "%]"
+  variable_start_string: "[["
+  variable_end_string: "]]"
+  comment_start_string: "[#"
+  comment_end_string: "#]"
+  # Without these, every [% if %] on its own line leaves a blank line behind in
+  # the rendered YAML.
+  trim_blocks: true
+  lstrip_blocks: true
+
+pkg_name:
+  type: str
+  help: Package name as it appears in DESCRIPTION, e.g. bixverse.gpu
+
+has_rust:
+  type: bool
+  default: true
+  help: >-
+    Package has its own crate under src/rust. Note this is about the
+    scaffolding, not about needing a toolchain in CI. bixverse.plots answers
+    false here but still sets ci_rust true.
+
+ci_rust:
+  type: bool
+  default: "[[ has_rust ]]"
+  help: >-
+    CI needs a Rust toolchain and sccache. True for any package with a crate,
+    and also for a pure-R package that installs a rextendr dependency from
+    source, e.g. bixverse.plots building bixverse from Remotes.
+
+rust_toolchain:
+  type: str
+  default: stable
+  help: Rust toolchain for CI. genewalkR pins 1.91.0.
+  when: "[[ ci_rust ]]"
+
+has_gpu:
+  type: bool
+  default: false
+  help: CI installs Vulkan and sets WGPU_BACKEND.
+
+windows:
+  type: bool
+  default: true
+  help: Include windows-latest in the check matrix.
+
+linux_runner:
+  type: str
+  default: ubuntu-latest
+  choices:
+    - ubuntu-latest
+    - ubuntu-22.04
+
+quarto:
+  type: bool
+  default: true
+  help: Install Quarto for pkgdown. False for packages with no vignettes.
+
+rebuild_from_source:
+  type: str
+  default: ""
+  help: >-
+    R packages to reinstall from source on macOS, space separated. bixverse
+    uses "stringfish qs2".
+
+extra_sysdeps:
+  type: str
+  default: ""
+  help: Extra apt packages for Linux, space separated.
+
+# Derived, never asked. The static library name and the R_init_ symbol both use
+# the package name with dots and dashes replaced, so bixverse.gpu gives
+# libbixverse_gpu.a and R_init_bixverse_gpu.
+lib_name:
+  type: str
+  when: false
+  default: "[[ pkg_name | replace('.', '_') | replace('-', '_') ]]"
+
+_message_after_copy: |
+  Rendered [[ pkg_name ]].
+
+  Review the diff before committing. The CI callers pin personal-actions@v1.

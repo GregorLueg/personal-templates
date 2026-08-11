@@ -1,0 +1,34 @@
+name: R-CMD-check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  R-CMD-check:
+    uses: GregorLueg/personal-actions/.github/workflows/r-cmd-check.yml@v1
+    with:
+[% if ci_rust and not has_rust %]
+      # No src/ here, but a rextendr dependency comes from Remotes and builds
+      # from source, so the job still needs a toolchain.
+[% endif %]
+      rust: [[ ci_rust | lower ]]
+[% if ci_rust and rust_toolchain != 'stable' %]
+      rust-toolchain: '[[ rust_toolchain ]]'
+[% endif %]
+      gpu: [[ has_gpu | lower ]]
+      windows: [[ windows | lower ]]
+      linux-runner: [[ linux_runner ]]
+[% if rebuild_from_source %]
+      rebuild-from-source: '[[ rebuild_from_source ]]'
+[% endif %]
+[% if extra_sysdeps %]
+      extra-sysdeps: '[[ extra_sysdeps ]]'
+[% endif %]
+    secrets: inherit
